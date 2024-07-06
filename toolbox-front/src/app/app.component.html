@@ -1,49 +1,63 @@
-<app-menu>
-  <h1>MENU SPACE</h1>
-</app-menu>
-<div class="meeting">
-  <app-meeting></app-meeting>
+<div class="calendar-container">
+  <div class="calendar">
+    <div class="calendar-headline">
+      <div class="calendar-headline-month">
+        {{ firstDayOfActiveMonth().monthShort }},
+        {{ firstDayOfActiveMonth().year }}
+      </div>
+      <div class="calendar-headline-controls">
+        <div class="calendar-headline-control" (click)="goToPreviousMonth()">
+          «
+        </div>
+        <div
+          class="calendar-headline-control calendar-headline-control-today"
+          (click)="goToToday()"
+        >
+          Today
+        </div>
+        <div class="calendar-headline-control" (click)="goToNextMonth()">»</div>
+      </div>
+    </div>
+    <div class="calendar-weeks-grid">
+      @for (weekDay of weekDays(); track $index) {
+        <div class="calendar-weeks-grid-cell">{{ weekDay }}</div>
+      }
+    </div>
+    <div class="calendar-grid">
+      @for (dayOfMonth of daysOfMonth(); track $index) {
+        <div
+          [ngClass]="{
+            'calendar-grid-cell': true,
+            'calendar-grid-cell-active':
+              activeDay()?.toISODate() === dayOfMonth.toISODate(),
+            'calendar-grid-cell-inactive':
+              dayOfMonth.month !== firstDayOfActiveMonth().month
+          }"
+          (click)="activeDay.set(dayOfMonth)"
+        >
+          {{ dayOfMonth.day }}
+        </div>
+      }
+    </div>
+  </div>
+  <div class="schedule">
+    <div class="schedule-headline">
+      @if (activeDay(); as activeDay) {
+        <div>{{ activeDay.toLocaleString(DATE_MED) }}</div>
+      } @else {
+        <div>Please select a day</div>
+      }
+    </div>
+    <div>
+      @if (activeDay() && activeDayMeetings().length === 0) {
+        <div>No Planned Meetings today</div>
+      }
+
+      @if (activeDay() && activeDayMeetings().length > 0) {
+        @for (meeting of activeDayMeetings(); track $index) {
+          <div>{{ meeting }}</div>
+        }
+      }
+    </div>
+  </div>
 </div>
-<div class='demo-app'>
-
-
-    <div class='demo-app-sidebar-section'>
-      <label>
-        <input
-          type='checkbox'
-          [checked]='calendarVisible'
-          (change)='handleCalendarToggle()'
-        />
-        toggle whole calendar
-      </label>
-    </div>
-    <div class='demo-app-sidebar-section'>
-      <label>
-        <input
-          type='checkbox'
-          [checked]='calendarOptions.weekends'
-          (change)='handleWeekendsToggle()'
-        />
-        toggle weekends
-      </label>
-    </div>
-    <div class='demo-app-sidebar-section'>
-      <h2>All Events ({{currentEvents.length}})</h2>
-      <ul>
-        <!--<li *ngFor='let event of currentEvents'>
-          <b>{{event.startStr}}</b>
-          <i>{{event.title}}</i>
-        </li>-->
-      </ul>
-    </div>
-  </div>
-
-  <div class='demo-app-main'>
-    <full-calendar *ngIf='calendarVisible' [options]='calendarOptions'>
-      <ng-template #eventContent let-arg>
-        <b>{{ arg.timeText }}</b>
-        <i>{{ arg.event.title }}</i>
-      </ng-template>
-    </full-calendar>
-  </div>
-

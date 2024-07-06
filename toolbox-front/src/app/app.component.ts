@@ -1,92 +1,72 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
-import { CalendarOptions, DateSelectArg, EventClickArg, EventApi } from '@fullcalendar/core';
-import interactionPlugin from '@fullcalendar/interaction';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import listPlugin from '@fullcalendar/list';
-import { INITIAL_EVENTS, createEventId } from "./event-utils";
+import {
+  Component,
+  InputSignal,
+  Signal,
+  WritableSignal,
+  computed,
+  input,
+  signal,
+} from '@angular/core';
+import { Meetings } from './meetings.interface';
+import { DateTime, Info, Interval } from 'luxon';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
-import { FullCalendarModule } from '@fullcalendar/angular';
-import {MenuComponent} from "./menu/menu.component";
-import {MeetingComponent} from "./meeting/meeting.component";
 
 @Component({
   selector: 'app-root',
-  standalone: true,
-  imports: [CommonModule, RouterOutlet, FullCalendarModule,MenuComponent,MeetingComponent],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  styleUrls: ['./app.component.css'],
+  imports: [CommonModule],
+  standalone: true,
 })
 export class AppComponent {
-  calendarVisible = true;
-  calendarOptions: CalendarOptions = {
-    plugins: [
-      interactionPlugin,
-      dayGridPlugin,
-      timeGridPlugin,
-      listPlugin,
-    ],
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-    },
-    initialView: 'dayGridMonth',
-    initialEvents: INITIAL_EVENTS, // alternatively, use the `events` setting to fetch from a feed
-    weekends: true,
-    editable: true,
-    selectable: true,
-    selectMirror: true,
-    dayMaxEvents: true,
-    select: this.handleDateSelect.bind(this),
-    eventClick: this.handleEventClick.bind(this),
-    eventsSet: this.handleEvents.bind(this)
-    /* you can update a remote database when these fire:
-    eventAdd:
-    eventChange:
-    eventRemove:
-    */
-  };
-  currentEvents: EventApi[] = [];
-
-  constructor(private changeDetector: ChangeDetectorRef) {
-  }
-
-  handleCalendarToggle() {
-    this.calendarVisible = !this.calendarVisible;
-  }
-
-  handleWeekendsToggle() {
-    const { calendarOptions } = this;
-    calendarOptions.weekends = !calendarOptions.weekends;
-  }
-
-  handleDateSelect(selectInfo: DateSelectArg) {
-    const title = prompt('Please enter a new title for your event');
-    const calendarApi = selectInfo.view.calendar;
-
-    calendarApi.unselect(); // clear date selection
-
-    if (title) {
-      calendarApi.addEvent({
-        id: createEventId(),
-        title,
-        start: selectInfo.startStr,
-        end: selectInfo.endStr,
-        allDay: selectInfo.allDay
+  meetings: InputSignal<Meetings> = input.required();
+  today: Signal<DateTime> = signal(DateTime.local());
+  firstDayOfActiveMonth: WritableSignal<DateTime> = signal(
+    this.today().startOf('month'),
+  );
+  activeDay: WritableSignal<DateTime | null> = signal(null);
+  weekDays: Signal<string[]> = signal(Info.weekdays('short'));
+  daysOfMonth: Signal<DateTime[]> = computed(() => {
+    return Interval.fromDateTimes(
+      this.firstDayOfActiveMonth().startOf('week'),
+      this.firstDayOfActiveMonth().endOf('month').endOf('week'),
+    )
+      .splitBy({ day: 1 })
+      .map((d) => {
+        if (d.start === null) {
+          throw new Error('Wrong dates');
+        }
+        return d.start;
       });
+  });
+  DATE_MED = DateTime.DATE_MED;
+  activeDayMeetings: Signal<string[]> = computed(() => {
+    const activeDay = this.activeDay();
+    if (activeDay === null) {
+      return [];
     }
+    const activeDayISO = activeDay.toISODate();
+
+    if (!activeDayISO) {
+      return [];
+    }
+
+    return this.meetings()[activeDayISO] ?? [];
+  });
+
+  goToPreviousMonth(): void {
+    this.firstDayOfActiveMonth.set(
+      this.firstDayOfActiveMonth().minus({ month: 1 }),
+    );
   }
 
-  handleEventClick(clickInfo: EventClickArg) {
-    if (confirm(`Are you sure you want to delete the event '${clickInfo.event.title}'`)) {
-      clickInfo.event.remove();
-    }
+  goToNextMonth(): void {
+    this.firstDayOfActiveMonth.set(
+      this.firstDayOfActiveMonth().plus({ month: 1 }),
+    );
   }
 
-  handleEvents(events: EventApi[]) {
-    this.currentEvents = events;
-    this.changeDetector.detectChanges();
+  goToToday(): void {
+    this.firstDayOfActiveMonth.set(this.today().startOf('month'));
   }
 }
